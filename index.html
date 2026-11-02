@@ -348,6 +348,16 @@ td button { padding: 2px 8px; font-size: 12px; }
     </div>
 
     <div class="card">
+      <h2>「筋トレしよう！」の通知</h2>
+      <div class="edit-row" style="grid-template-columns: 1fr auto">
+        <select id="remindTime" style="font-size:18px;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text-primary)"></select>
+        <button class="small" id="btnRemind">カレンダーに登録</button>
+      </div>
+      <p class="note" style="margin:4px 0 0">毎日この時間に、iPhoneのカレンダーから「💪 筋トレしよう！」と通知が届きます。押すと出る画面で「すべて追加」→「完了」を押してください。<br>
+      時間を変えるときは、カレンダーの古い予定を消してから（予定を開いて「イベントを削除」→「今後のすべてのイベントを削除」）、新しい時間で登録し直してください。</p>
+    </div>
+
+    <div class="card">
       <h2>呼び名</h2>
       <div class="edit-row" style="grid-template-columns: 1fr auto">
         <input type="text" id="nickName" placeholder="例：さっちゃん">
@@ -872,10 +882,21 @@ function renderSet() {
     data.menu.splice(b.dataset.rm, 1); data.level = 0; save(); renderSet();
   });
   $('nickName').value = data.name || '';
+  const rt = data.remind || '1900';
+  let opts = '';
+  for (let h = 5; h < 24; h++) for (const m of ['00', '30']) {
+    const v = String(h).padStart(2, '0') + m;
+    opts += '<option value="' + v + '"' + (v === rt ? ' selected' : '') + '>' + h + ':' + m + '</option>';
+  }
+  $('remindTime').innerHTML = opts;
   $('goalWeight1').value = data.goal.w1 || '';
   $('goalWeight').value = data.goal.w || '';
   $('goalFat').value = data.goal.f || '';
 }
+$('btnRemind').onclick = () => {
+  data.remind = $('remindTime').value; save();
+  location.href = 'ics/' + data.remind + '.ics';
+};
 $('btnName').onclick = () => { data.name = $('nickName').value.trim(); save(); toast('保存しました'); };
 $('btnAddMenu').onclick = () => {
   const name = $('newName').value.trim();
@@ -910,7 +931,7 @@ $('fileImport').onchange = e => {
     const d = JSON.parse(t);
     if (!d.records || !d.menu) throw new Error();
     if (!confirm('今のデータを、このファイルの内容に置き換えますか？')) return;
-    data = { records: d.records, menu: d.menu, level: d.level || 0, checks: d.checks || {}, totals: d.totals || {}, goal: d.goal || {}, name: d.name || '' };
+    data = { records: d.records, menu: d.menu, level: d.level || 0, checks: d.checks || {}, totals: d.totals || {}, goal: d.goal || {}, name: d.name || '', remind: d.remind };
     save();
     return (async () => {
       for (const k in (d.photos || {})) { await putPhoto(k, await (await fetch(d.photos[k])).blob()); dropUrl(k); }
