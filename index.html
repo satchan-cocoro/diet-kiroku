@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ダイエット記録">
+<meta name="theme-color" content="#2a78d6">
+<title>ダイエット記録</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f4f4f1;
+  --surface-1: #fcfcfb;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #8a8984;
+  --grid: #e6e5e0;
+  --border: #dddcd6;
+  --series-1: #2a78d6;
+  --series-1-soft: rgba(42,120,214,.12);
+  --good: #008300;
+  --warn: #c98500;
+  --bad: #e34948;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #111110;
+    --surface-1: #1a1a19;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8f8e86;
+    --grid: #2e2e2c;
+    --border: #3a3a37;
+    --series-1: #3987e5;
+    --series-1-soft: rgba(57,135,229,.18);
+    --good: #2fa52f;
+    --warn: #e0a020;
+    --bad: #e66767;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  font-size: 16px; line-height: 1.6;
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+header { padding: 16px 16px 4px; }
+header h1 { font-size: 20px; margin: 0; }
+header .sub { color: var(--text-secondary); font-size: 13px; }
+main { padding: 8px 12px; max-width: 640px; margin: 0 auto; }
+.card {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px; margin-bottom: 12px;
+}
+.card h2 { font-size: 16px; margin: 0 0 10px; }
+.hidden { display: none !important; }
+label { display: block; font-size: 13px; color: var(--text-secondary); margin-bottom: 2px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.field { margin-bottom: 10px; }
+input[type=number], input[type=date], input[type=text] {
+  width: 100%; font-size: 18px; padding: 10px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text-primary);
+}
+button {
+  font-size: 16px; padding: 12px 16px; border-radius: 10px; border: 0;
+  background: var(--series-1); color: #fff; font-weight: 600; cursor: pointer;
+}
+button.sub { background: transparent; color: var(--series-1); border: 1px solid var(--series-1); }
+button.small { font-size: 13px; padding: 6px 10px; }
+button.danger { background: transparent; color: var(--bad); border: 1px solid var(--bad); }
+button.wide { width: 100%; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { text-align: center; padding: 8px 4px; border-radius: 10px; background: var(--bg); }
+.stat .k { font-size: 12px; color: var(--text-secondary); }
+.stat .v { font-size: 24px; font-weight: 700; }
+.stat .u { font-size: 12px; color: var(--text-secondary); margin-left: 2px; }
+.stat .d { font-size: 12px; color: var(--text-secondary); }
+.badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 99px; border: 1px solid currentColor; }
+.note { font-size: 13px; color: var(--text-secondary); }
+.toast {
+  position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  background: var(--text-primary); color: var(--surface-1); padding: 10px 18px; border-radius: 99px;
+  font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none;
+}
+.toast.show { opacity: 1; }
+
+/* タブ */
+nav {
+  position: fixed; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(5, 1fr);
+  background: var(--surface-1); border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+nav button {
+  background: transparent; color: var(--text-muted); border-radius: 0; padding: 8px 0 10px;
+  font-size: 12px; font-weight: 600; display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+nav button .ic { font-size: 20px; line-height: 1; }
+nav button.on { color: var(--series-1); }
+
+/* 期間ボタン */
+.seg { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.seg button { background: var(--surface-1); color: var(--text-secondary); border: 1px solid var(--border); font-size: 13px; padding: 6px 12px; }
+.seg button.on { background: var(--series-1); color: #fff; border-color: var(--series-1); }
+
+/* グラフ */
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+.chart .title { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.chart .title b { font-size: 15px; }
+.chart .title span { font-size: 13px; color: var(--text-secondary); }
+.tip {
+  position: absolute; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 8px; padding: 4px 8px; font-size: 13px; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  color: var(--text-primary);
+}
+.tip .td { color: var(--text-secondary); font-size: 12px; }
+.empty { color: var(--text-muted); font-size: 14px; text-align: center; padding: 24px 0; }
+
+/* 筋トレ */
+.menu-item {
+  display: flex; align-items: center; gap: 12px; padding: 12px 4px; border-bottom: 1px solid var(--grid);
+  cursor: pointer; user-select: none;
+}
+.menu-item:last-child { border-bottom: 0; }
+.chk {
+  width: 30px; height: 30px; border-radius: 8px; border: 2px solid var(--border); flex: none;
+  display: flex; align-items: center; justify-content: center; font-size: 18px; color: #fff;
+}
+.menu-item.done .chk { background: var(--good); border-color: var(--good); }
+.menu-item.done .nm { color: var(--text-secondary); }
+.menu-item .nm { flex: 1; font-size: 17px; }
+.menu-item .tip2 { font-size: 12px; color: var(--text-secondary); text-decoration: none; }
+.menu-item .amt { color: var(--text-secondary); font-size: 14px; white-space: nowrap; }
+.progress { height: 10px; background: var(--grid); border-radius: 99px; overflow: hidden; margin: 6px 0 2px; }
+.progress div { height: 100%; background: var(--good); border-radius: 99px; transition: width .2s; }
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.cal .h { font-size: 11px; color: var(--text-muted); }
+.cal .c {
+  aspect-ratio: 1; border-radius: 8px; font-size: 12px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; background: var(--bg); color: var(--text-secondary); cursor: pointer;
+}
+.cal .c.part { box-shadow: inset 0 0 0 2px var(--good); }
+.cal .c.full { background: var(--good); color: #fff; }
+.cal .c.today { outline: 2px solid var(--series-1); outline-offset: 1px; }
+.cal .c.sel { font-weight: 800; }
+.cal .c .m { font-size: 10px; line-height: 1; }
+.cal-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.cal-nav button { background: transparent; color: var(--series-1); padding: 4px 12px; font-size: 18px; }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--text-secondary); margin-top: 8px; flex-wrap: wrap; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; background: var(--bg); }
+.legend i.part { box-shadow: inset 0 0 0 2px var(--good); }
+.legend i.full { background: var(--good); }
+.edit-row { display: grid; grid-template-columns: 1fr 118px auto; gap: 6px; align-items: center; margin-bottom: 6px; }
+.edit-row input { font-size: 15px; padding: 8px; }
+.edit-block { border-bottom: 1px solid var(--grid); padding-bottom: 8px; margin-bottom: 8px; }
+.edit-block .tipin { font-size: 13px; padding: 6px 8px; }
+.lv { display: grid; gap: 8px; }
+.lv button { text-align: left; }
+.lv button .s { display: block; font-size: 12px; font-weight: 400; opacity: .85; }
+
+/* 写真 */
+.slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.slot { cursor: pointer; text-align: center; }
+.slot img, .slot .ph-empty { width: 100%; aspect-ratio: 3/4; border-radius: 8px; display: block; }
+.slot img { object-fit: cover; }
+.slot .ph-empty { border: 2px dashed var(--border); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 22px; }
+.slot span { font-size: 11px; color: var(--text-secondary); }
+#angleSeg button small { opacity: .7; }
+.ba { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ba figure { margin: 0; }
+.ba img { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 10px; background: var(--bg); display: block; }
+.ba figcaption { font-size: 13px; color: var(--text-secondary); text-align: center; margin-top: 4px; line-height: 1.4; }
+.ba figcaption b { color: var(--text-primary); font-size: 15px; }
+.ba select { width: 100%; font-size: 15px; padding: 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text-primary); margin-bottom: 6px; }
+.ba-diff { text-align: center; margin-top: 10px; font-size: 15px; }
+.gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.gallery div { position: relative; cursor: pointer; }
+.gallery img { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 8px; display: block; }
+.gallery span { position: absolute; left: 4px; bottom: 4px; font-size: 11px; background: rgba(0,0,0,.55); color: #fff; padding: 0 6px; border-radius: 6px; }
+.viewer { position: fixed; inset: 0; background: rgba(0,0,0,.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; padding: 16px; }
+.viewer img { max-width: 100%; max-height: 75vh; border-radius: 8px; }
+.viewer .vc { color: #fff; margin: 10px 0; text-align: center; }
+.viewer .vb { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+
+/* 履歴 */
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 6px 4px; text-align: right; border-bottom: 1px solid var(--grid); }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--text-secondary); font-weight: 600; font-size: 12px; }
+td button { padding: 2px 8px; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ダイエット記録</h1>
+  <div class="sub" id="headerSub"></div>
+</header>
+
+<main>
+  <!-- ===== 記録 ===== -->
+  <section id="tab-rec">
+    <div class="card">
+      <h2>今日の記録</h2>
+      <div class="field">
+        <label for="inDate">日付</label>
+        <input type="date" id="inDate">
+      </div>
+      <div class="row3">
+        <div class="field">
+          <label for="inWeight">体重（kg）</label>
+          <input type="number" id="inWeight" inputmode="decimal" step="0.1" placeholder="55.0">
+        </div>
+        <div class="field">
+          <label for="inHeight">身長（cm）</label>
+          <input type="number" id="inHeight" inputmode="decimal" step="0.1" placeholder="158.0">
+        </div>
+        <div class="field">
+          <label for="inFat">体脂肪（%）</label>
+          <input type="number" id="inFat" inputmode="decimal" step="0.1" placeholder="28.0">
+        </div>
+      </div>
+      <div class="field">
+        <label>この日の写真（撮りたい向きだけでOK・タップで追加）　<span id="recPhotoCount"></span></label>
+        <div class="slots" id="recSlots"></div>
+        <input type="file" id="filePhoto" accept="image/*" class="hidden">
+      </div>
+      <button class="wide" id="btnSave">記録する</button>
+      <p class="note" style="margin:8px 0 0">同じ日付で記録し直すと上書きされます。身長は前回の値が自動で入ります。</p>
+    </div>
+
+    <div class="card" id="latestCard">
+      <h2>最新の数値</h2>
+      <div class="stats" id="latestStats"></div>
+      <div id="latestMsg" class="note" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+      <h2>今日の筋トレ</h2>
+      <div id="todayTrainSummary"></div>
+      <button class="sub wide" style="margin-top:10px" data-goto="train">チェックしに行く</button>
+    </div>
+  </section>
+
+  <!-- ===== グラフ ===== -->
+  <section id="tab-graph" class="hidden">
+    <div class="seg" id="rangeSeg">
+      <button data-r="7">1週間</button>
+      <button data-r="30" class="on">1ヶ月</button>
+      <button data-r="90">3ヶ月</button>
+      <button data-r="0">全部</button>
+    </div>
+    <div class="card chart" id="chWeight"></div>
+    <div class="card chart" id="chBmi"></div>
+    <div class="card chart" id="chFat"></div>
+    <div class="card">
+      <h2>記録の一覧</h2>
+      <div id="histTable"></div>
+    </div>
+  </section>
+
+  <!-- ===== 筋トレ ===== -->
+  <section id="tab-train" class="hidden">
+    <div class="card">
+      <div class="note"><b id="levelLabel"></b><br><span id="levelHint"></span></div>
+      <div class="cal-nav" style="margin-bottom:4px">
+        <button id="dayPrev" aria-label="前の日">‹</button>
+        <h2 id="trainDateLabel" style="margin:0"></h2>
+        <button id="dayNext" aria-label="次の日">›</button>
+      </div>
+      <div class="progress"><div id="trainBar"></div></div>
+      <div class="note" id="trainCount"></div>
+      <div id="trainList"></div>
+    </div>
+
+    <div class="card">
+      <div class="stats">
+        <div class="stat"><div class="k">連続達成</div><div><span class="v" id="streak">0</span><span class="u">日</span></div></div>
+        <div class="stat"><div class="k">今月の全部できた日</div><div><span class="v" id="monthFull">0</span><span class="u">日</span></div></div>
+        <div class="stat"><div class="k">今月やった日</div><div><span class="v" id="monthAny">0</span><span class="u">日</span></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cal-nav">
+        <button id="calPrev" aria-label="前の月">‹</button>
+        <b id="calLabel"></b>
+        <button id="calNext" aria-label="次の月">›</button>
+      </div>
+      <div class="cal" id="cal"></div>
+      <div class="legend">
+        <span><i></i>なし</span>
+        <span><i class="part"></i>一部できた</span>
+        <span><i class="full"></i>全部できた</span>
+      </div>
+      <p class="note" style="margin:6px 0 0">日付をタップすると、その日のチェックを付け直せます。</p>
+    </div>
+  </section>
+
+  <!-- ===== 写真 ===== -->
+  <section id="tab-photo" class="hidden">
+    <div class="card">
+      <h2>ビフォーアフター</h2>
+      <div class="seg" id="angleSeg"></div>
+      <div id="baBox"></div>
+    </div>
+    <div class="card">
+      <h2 id="galleryTitle">写真の一覧</h2>
+      <div id="gallery"></div>
+      <p class="note" style="margin:8px 0 0">写真をタップすると、大きく見たり、ビフォー・アフターに入れたりできます。写真は「記録」タブで、日付と向きごとに追加します。</p>
+    </div>
+  </section>
+
+  <!-- ===== 設定 ===== -->
+  <section id="tab-set" class="hidden">
+    <div class="card">
+      <h2>おすすめメニュー</h2>
+      <p class="note" style="margin-top:0">ショウさんのメニュー（レベル3）と同じ7種目を、回数と動きを軽くして3段階にしました。押すと、筋トレメニューがそのレベルに入れ替わります（過去のチェックは残ります）。</p>
+      <div class="lv" id="lvButtons"></div>
+    </div>
+
+    <div class="card">
+      <h2>筋トレメニュー</h2>
+      <div id="menuEdit"></div>
+      <div class="edit-row" style="margin-top:10px">
+        <input type="text" id="newName" placeholder="種目（例：スクワット）">
+        <input type="text" id="newAmt" placeholder="20回">
+        <button class="small" id="btnAddMenu">追加</button>
+      </div>
+      <p class="note">メニューを消しても、過去のチェック記録は残ります。</p>
+    </div>
+
+    <div class="card">
+      <h2>目標</h2>
+      <div class="row3">
+        <div class="field">
+          <label for="goalWeight1">まずの目標（kg）</label>
+          <input type="number" id="goalWeight1" inputmode="decimal" step="0.1">
+        </div>
+        <div class="field">
+          <label for="goalWeight">最終目標（kg）</label>
+          <input type="number" id="goalWeight" inputmode="decimal" step="0.1">
+        </div>
+        <div class="field">
+          <label for="goalFat">目標体脂肪（%）</label>
+          <input type="number" id="goalFat" inputmode="decimal" step="0.1">
+        </div>
+      </div>
+      <button class="wide" id="btnGoal">目標を保存</button>
+      <p class="note" style="margin:8px 0 0">目標はグラフに点線で表示されます。</p>
+    </div>
+
+    <div class="card">
+      <h2>バックアップ</h2>
+      <p class="note" style="margin-top:0">データはこの端末のブラウザの中だけに保存されています。ときどき書き出しておくと、機種変更やブラウザの掃除のときも安心です（写真も一緒に保存されます）。</p>
+      <div class="row">
+        <button class="sub" id="btnExport">書き出す</button>
+        <button class="sub" id="btnImport">読み込む</button>
+      </div>
+      <input type="file" id="fileImport" accept="application/json,.json" class="hidden">
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button data-tab="rec" class="on"><span class="ic">✏️</span>記録</button>
+  <button data-tab="graph"><span class="ic">📈</span>グラフ</button>
+  <button data-tab="train"><span class="ic">💪</span>筋トレ</button>
+  <button data-tab="photo"><span class="ic">📷</span>写真</button>
+  <button data-tab="set"><span class="ic">⚙️</span>設定</button>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- データ ----------
+const KEY = 'diet-app-v1';
+// ショウさんのメニュー（レベル3）を、同じ7種目のまま軽くしたもの
+const LEVELS = {
+  1: { name: 'レベル1｜まずはここから', hint: '2週間、全部ラクにできるようになったらレベル2へ', menu: [
+    { id: 'a1', name: 'ヒップリフト（両脚）', amt: '15回×2', tip: '上でお尻をギュッと締めて1秒止める' },
+    { id: 'a2', name: '椅子スクワット', amt: '10回×2', tip: '椅子にお尻が触れたら立つ。手は前に伸ばしてOK' },
+    { id: 'a3', name: 'ワイドスクワット', amt: '10回×2', tip: '足を大きく開いて、2秒かけて下ろす' },
+    { id: 'a4', name: '横向きの脚上げ', amt: '左右10回×2', tip: '' },
+    { id: 'a5', name: '膝つき腕立て伏せ', amt: '8回×2', tip: 'きつい日は壁に手をついてもOK' },
+    { id: 'a6', name: 'スーパーマン', amt: '8回×2', tip: 'うつ伏せで手足を少し浮かせるだけでOK' },
+    { id: 'a7', name: 'プランク（膝つきOK）', amt: '20秒×2', tip: '' },
+  ] },
+  2: { name: 'レベル2｜慣れてきたら', hint: '2週間、全部ラクにできるようになったらレベル3へ', menu: [
+    { id: 'b1', name: '片脚ヒップリフト', amt: '左右8回×2', tip: 'きつければ浮かせる脚を軽く床につけてOK' },
+    { id: 'b2', name: 'スプリットスクワット', amt: '左右8回×2', tip: '脚を前後に開いて真下に沈む。後ろ足は床のまま。壁に手をついてOK' },
+    { id: 'b3', name: 'ワイドスクワット', amt: '12回×3', tip: '3秒かけて下ろす' },
+    { id: 'b4', name: '横向きの脚上げ', amt: '左右12回×3', tip: '' },
+    { id: 'b5', name: '膝つき腕立て伏せ', amt: '10回×3', tip: '余裕があれば最後の1セットだけ普通の腕立てに' },
+    { id: 'b6', name: 'スーパーマン', amt: '10回×3', tip: '上で1秒止める' },
+    { id: 'b7', name: 'プランク', amt: '40秒×2', tip: '' },
+  ] },
+  3: { name: 'レベル3｜ショウさんのメニュー', hint: 'これでも余裕なら、2Lのペットボトルを抱えてワイドスクワット', menu: [
+    { id: 'c1', name: '片脚ヒップリフト', amt: '左右10回×3', tip: '' },
+    { id: 'c2', name: 'ブルガリアンスクワット', amt: '左右8〜10回×3', tip: '後ろの足を椅子にのせる。最初は壁に手をついてOK' },
+    { id: 'c3', name: 'ワイドスクワット', amt: '15回×3', tip: '3秒かけて下ろす、下で2秒止める' },
+    { id: 'c4', name: '横向きの脚上げ', amt: '左右15回×3', tip: '' },
+    { id: 'c5', name: '普通の腕立て伏せ', amt: '8〜10回×3', tip: '' },
+    { id: 'c6', name: 'スーパーマン', amt: '10回×3', tip: '上で2秒止める' },
+    { id: 'c7', name: 'プランク', amt: '60秒×2', tip: '' },
+  ] },
+};
+const copyMenu = lv => LEVELS[lv].menu.map(m => ({ ...m }));
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem(KEY));
+    if (d && d.records) { d.totals = d.totals || {}; return d; }
+  } catch (e) {}
+  return { records: {}, menu: copyMenu(1), level: 1, checks: {}, totals: {}, goal: {} };
+}
+let data = load();
+function save() { localStorage.setItem(KEY, JSON.stringify(data)); }
+
+// ---------- 日付 ----------
+function ymd(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function parseYmd(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
+function addDays(s, n) { const d = parseYmd(s); d.setDate(d.getDate() + n); return ymd(d); }
+const WD = ['日', '月', '火', '水', '木', '金', '土'];
+function jpDate(s) { const d = parseYmd(s); return (d.getMonth() + 1) + '/' + d.getDate() + '（' + WD[d.getDay()] + '）'; }
+const today = () => ymd(new Date());
+
+// ---------- 計算 ----------
+function bmi(w, h) { return w / Math.pow(h / 100, 2); }
+// 日本肥満学会の判定
+function bmiJudge(b) {
+  if (b < 18.5) return { t: '低体重', c: 'var(--warn)' };
+  if (b < 25) return { t: '普通体重', c: 'var(--good)' };
+  if (b < 30) return { t: '肥満（1度）', c: 'var(--warn)' };
+  if (b < 35) return { t: '肥満（2度）', c: 'var(--bad)' };
+  if (b < 40) return { t: '肥満（3度）', c: 'var(--bad)' };
+  return { t: '肥満（4度）', c: 'var(--bad)' };
+}
+const f1 = n => (Math.round(n * 10) / 10).toFixed(1);
+function sortedDates() { return Object.keys(data.records).sort(); }
+function lastHeight() {
+  const ds = sortedDates();
+  for (let i = ds.length - 1; i >= 0; i--) if (data.records[ds[i]].h) return data.records[ds[i]].h;
+  return '';
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 1800);
+}
+const $ = id => document.getElementById(id);
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+// ---------- タブ ----------
+let curTab = 'rec';
+function showTab(t) {
+  curTab = t;
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  ['rec', 'graph', 'train', 'photo', 'set'].forEach(x => $('tab-' + x).classList.toggle('hidden', x !== t));
+  render();
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+document.querySelectorAll('[data-goto]').forEach(b => b.onclick = () => { trainDate = today(); showTab(b.dataset.goto); });
+
+// ---------- 記録 ----------
+function fillForm(date) {
+  const r = data.records[date];
+  $('inWeight').value = r ? r.w : '';
+  $('inFat').value = r && r.f != null ? r.f : '';
+  $('inHeight').value = r && r.h ? r.h : lastHeight();
+}
+$('inDate').value = today();
+$('inDate').max = today();
+$('inDate').onchange = () => { fillForm($('inDate').value); renderRecPhoto(); };
+$('btnSave').onclick = () => {
+  const date = $('inDate').value;
+  const w = parseFloat($('inWeight').value);
+  const h = parseFloat($('inHeight').value);
+  const fRaw = $('inFat').value;
+  const f = fRaw === '' ? null : parseFloat(fRaw);
+  if (!date) return toast('日付を入れてください');
+  if (!(w > 20 && w < 300)) return toast('体重を入れてください');
+  if (!(h > 100 && h < 250)) return toast('身長をcmで入れてください');
+  if (f != null && !(f > 1 && f < 70)) return toast('体脂肪は%で入れてください');
+  data.records[date] = { w, h, f };
+  save();
+  toast('記録しました（BMI ' + f1(bmi(w, h)) + '）');
+  render();
+};
+
+function renderRec() {
+  const ds = sortedDates();
+  const box = $('latestStats');
+  if (!ds.length) {
+    box.innerHTML = '';
+    $('latestMsg').textContent = 'まだ記録がありません。上で今日の数値を入れてみましょう。';
+  } else {
+    const last = data.records[ds[ds.length - 1]];
+    const first = data.records[ds[0]];
+    const b = bmi(last.w, last.h);
+    const j = bmiJudge(b);
+    const diff = (a, z, u) => ds.length > 1 && a != null && z != null
+      ? '<div class="d">はじめから ' + (a - z > 0 ? '+' : '') + f1(a - z) + u + '</div>' : '<div class="d">&nbsp;</div>';
+    box.innerHTML =
+      '<div class="stat"><div class="k">体重</div><div><span class="v">' + f1(last.w) + '</span><span class="u">kg</span></div>' + diff(last.w, first.w, 'kg') + '</div>' +
+      '<div class="stat"><div class="k">BMI</div><div><span class="v">' + f1(b) + '</span></div><div class="d"><span class="badge" style="color:' + j.c + '">' + j.t + '</span></div></div>' +
+      '<div class="stat"><div class="k">体脂肪</div><div><span class="v">' + (last.f != null ? f1(last.f) : '–') + '</span><span class="u">%</span></div>' + diff(last.f, first.f, '%') + '</div>';
+    const std = 22 * Math.pow(last.h / 100, 2);
+    let msg = jpDate(ds[ds.length - 1]) + ' の記録｜身長 ' + f1(last.h) + 'cm の標準体重（BMI22）は ' + f1(std) + 'kg';
+    const g1 = data.goal.w1, g = data.goal.w;
+    if (g1 && last.w > g1) msg += '｜まずの目標 ' + f1(g1) + 'kg まであと ' + f1(last.w - g1) + 'kg';
+    else if (g && last.w > g) msg += (g1 ? '｜🎉 まずの目標を達成！' : '｜') + '最終目標 ' + f1(g) + 'kg まであと ' + f1(last.w - g) + 'kg';
+    else if (g || g1) msg += '｜🎉 目標体重を達成しています';
+    $('latestMsg').textContent = msg;
+  }
+  // 今日の筋トレ
+  const c = data.checks[today()] || [];
+  const done = data.menu.filter(m => c.includes(m.id)).length;
+  $('todayTrainSummary').innerHTML =
+    '<div class="progress"><div style="width:' + (data.menu.length ? done / data.menu.length * 100 : 0) + '%"></div></div>' +
+    '<div class="note">' + done + ' / ' + data.menu.length + ' 種目できました' + (done && done === data.menu.length ? '　🎉 全部達成！' : '') + '</div>';
+  $('headerSub').textContent = jpDate(today()) + (ds.includes(today()) ? '　今日の記録済み ✓' : '　今日はまだ記録していません');
+}
+
+// ---------- グラフ ----------
+let range = 30;
+document.querySelectorAll('#rangeSeg button').forEach(b => b.onclick = () => {
+  range = Number(b.dataset.r);
+  document.querySelectorAll('#rangeSeg button').forEach(x => x.classList.toggle('on', x === b));
+  renderGraph();
+});
+
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function niceStep(span) {
+  const raw = span / 4;
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw / p;
+  return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * p;
+}
+
+// pts: [{date, v}], refs: [{v, label}]
+function lineChart(box, title, unit, pts, refs) {
+  box.innerHTML = '';
+  const head = document.createElement('div');
+  head.className = 'title';
+  const lastV = pts.length ? f1(pts[pts.length - 1].v) + unit : '';
+  head.innerHTML = '<b>' + title + '</b><span>' + (lastV ? '最新 ' + lastV : '') + '</span>';
+  box.appendChild(head);
+  if (pts.length === 0) {
+    const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'この期間の記録はまだありません';
+    box.appendChild(e); return;
+  }
+  const W = 600, H = 240, L = 44, R = 16, T = 12, B = 28;
+  const t0 = parseYmd(pts[0].date).getTime();
+  const t1 = parseYmd(pts[pts.length - 1].date).getTime();
+  const tspan = Math.max(t1 - t0, 86400000);
+  let lo = Math.min(...pts.map(p => p.v)), hi = Math.max(...pts.map(p => p.v));
+  refs.forEach(r => { lo = Math.min(lo, r.v); hi = Math.max(hi, r.v); });
+  if (hi - lo < 2) { const m = (hi + lo) / 2; lo = m - 1; hi = m + 1; }
+  const step = niceStep(hi - lo);
+  lo = Math.floor((lo - step * 0.25) / step) * step;
+  hi = Math.ceil((hi + step * 0.25) / step) * step;
+  const x = t => pts.length === 1 ? (L + W - R) / 2 : L + (t - t0) / tspan * (W - L - R);
+  const y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': title + 'の推移' }, box);
+  // 横グリッド
+  for (let v = lo; v <= hi + 1e-9; v += step) {
+    el('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: 'var(--grid)', 'stroke-width': 1 }, svg);
+    const t = el('text', { x: L - 6, y: y(v) + 4, 'text-anchor': 'end', 'font-size': 12, fill: 'var(--text-muted)' }, svg);
+    t.textContent = step < 1 ? v.toFixed(1) : Math.round(v);
+  }
+  // 日付の目盛り（最大5つ）
+  const nTick = Math.min(5, pts.length);
+  for (let i = 0; i < nTick; i++) {
+    const p = pts[nTick === 1 ? 0 : Math.round(i * (pts.length - 1) / (nTick - 1))];
+    const d = parseYmd(p.date);
+    const t = el('text', { x: x(d.getTime()), y: H - 8, 'text-anchor': i === 0 && nTick > 1 ? 'start' : i === nTick - 1 && nTick > 1 ? 'end' : 'middle', 'font-size': 12, fill: 'var(--text-muted)' }, svg);
+    t.textContent = (d.getMonth() + 1) + '/' + d.getDate();
+  }
+  // 基準線・目標線
+  refs.forEach(r => {
+    el('line', { x1: L, x2: W - R, y1: y(r.v), y2: y(r.v), stroke: 'var(--text-muted)', 'stroke-width': 1.5, 'stroke-dasharray': '5 4' }, svg);
+    const t = el('text', { x: W - R - 2, y: y(r.v) - 5, 'text-anchor': 'end', 'font-size': 12, fill: 'var(--text-secondary)' }, svg);
+    t.textContent = r.label;
+  });
+  // 折れ線
+  const xy = pts.map(p => [x(parseYmd(p.date).getTime()), y(p.v)]);
+  if (xy.length > 1) {
+    el('path', { d: 'M' + xy.map(q => q.join(',')).join('L') + `L${xy[xy.length - 1][0]},${H - B}L${xy[0][0]},${H - B}Z`, fill: 'var(--series-1-soft)' }, svg);
+    el('path', { d: 'M' + xy.map(q => q.join(',')).join('L'), fill: 'none', stroke: 'var(--series-1)', 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
+  }
+  if (xy.length <= 31) xy.forEach(q => el('circle', { cx: q[0], cy: q[1], r: 4, fill: 'var(--series-1)', stroke: 'var(--surface-1)', 'stroke-width': 2 }, svg));
+  // 最新値ラベル
+  const lq = xy[xy.length - 1];
+  el('circle', { cx: lq[0], cy: lq[1], r: 5, fill: 'var(--series-1)', stroke: 'var(--surface-1)', 'stroke-width': 2 }, svg);
+
+  // ホバー（指でなぞる）
+  const cross = el('line', { y1: T, y2: H - B, stroke: 'var(--text-muted)', 'stroke-width': 1, visibility: 'hidden' }, svg);
+  const dot = el('circle', { r: 6, fill: 'var(--series-1)', stroke: 'var(--surface-1)', 'stroke-width': 2, visibility: 'hidden' }, svg);
+  const tip = document.createElement('div'); tip.className = 'tip hidden'; box.appendChild(tip);
+  const hit = el('rect', { x: L, y: 0, width: W - L - R, height: H, fill: 'transparent' }, svg);
+  function move(ev) {
+    const rect = svg.getBoundingClientRect();
+    const cx = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - rect.left) / rect.width * W;
+    let bi = 0, bd = Infinity;
+    xy.forEach((q, i) => { const dd = Math.abs(q[0] - cx); if (dd < bd) { bd = dd; bi = i; } });
+    const q = xy[bi], p = pts[bi];
+    cross.setAttribute('x1', q[0]); cross.setAttribute('x2', q[0]); cross.setAttribute('visibility', 'visible');
+    dot.setAttribute('cx', q[0]); dot.setAttribute('cy', q[1]); dot.setAttribute('visibility', 'visible');
+    tip.innerHTML = '<div class="td">' + jpDate(p.date) + '</div><b>' + f1(p.v) + unit + '</b>';
+    tip.classList.remove('hidden');
+    const scale = rect.width / W;
+    const tx = q[0] * scale, ty = q[1] * scale + head.offsetHeight + 16;
+    tip.style.left = Math.min(Math.max(tx - tip.offsetWidth / 2, 0), box.clientWidth - tip.offsetWidth) + 'px';
+    tip.style.top = Math.max(ty - tip.offsetHeight - 14, 0) + 'px';
+  }
+  function out() { cross.setAttribute('visibility', 'hidden'); dot.setAttribute('visibility', 'hidden'); tip.classList.add('hidden'); }
+  hit.addEventListener('mousemove', move);
+  hit.addEventListener('touchstart', move, { passive: true });
+  hit.addEventListener('touchmove', move, { passive: true });
+  hit.addEventListener('mouseleave', out);
+  hit.addEventListener('touchend', () => setTimeout(out, 1500));
+}
+
+function renderGraph() {
+  let ds = sortedDates();
+  if (range) { const from = addDays(today(), -(range - 1)); ds = ds.filter(d => d >= from); }
+  const rec = ds.map(d => ({ date: d, ...data.records[d] }));
+  const lastH = rec.length ? rec[rec.length - 1].h : null;
+  const wRefs = [];
+  if (data.goal.w1) wRefs.push({ v: data.goal.w1, label: 'まずの目標 ' + f1(data.goal.w1) + 'kg' });
+  if (data.goal.w) wRefs.push({ v: data.goal.w, label: '最終目標 ' + f1(data.goal.w) + 'kg' });
+  lineChart($('chWeight'), '体重', 'kg', rec.map(r => ({ date: r.date, v: r.w })), wRefs);
+  lineChart($('chBmi'), 'BMI', '', rec.map(r => ({ date: r.date, v: bmi(r.w, r.h) })),
+    [{ v: 25, label: '25（肥満の境目）' }, { v: 22, label: '22（標準）' }]);
+  const fRefs = [];
+  if (data.goal.f) fRefs.push({ v: data.goal.f, label: '目標 ' + f1(data.goal.f) + '%' });
+  lineChart($('chFat'), '体脂肪率', '%', rec.filter(r => r.f != null).map(r => ({ date: r.date, v: r.f })), fRefs);
+
+  // 一覧（新しい順）
+  const all = sortedDates().reverse();
+  if (!all.length) { $('histTable').innerHTML = '<div class="empty">まだ記録がありません</div>'; return; }
+  $('histTable').innerHTML = '<table><thead><tr><th>日付</th><th>体重</th><th>BMI</th><th>体脂肪</th><th></th></tr></thead><tbody>' +
+    all.map(d => { const r = data.records[d];
+      return '<tr><td>' + jpDate(d) + '</td><td>' + f1(r.w) + '</td><td>' + f1(bmi(r.w, r.h)) + '</td><td>' + (r.f != null ? f1(r.f) : '–') +
+        '</td><td><button class="danger" data-del="' + d + '">消す</button></td></tr>'; }).join('') + '</tbody></table>';
+  $('histTable').querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+    if (!confirm(jpDate(b.dataset.del) + ' の記録を消しますか？')) return;
+    delete data.records[b.dataset.del]; save(); render();
+  });
+}
+window.addEventListener('resize', () => { if (curTab === 'graph') renderGraph(); });
+
+// ---------- 筋トレ ----------
+let trainDate = today();
+let calMonth = today().slice(0, 7);
+// その日に何種目中いくつできたか（メニューを変えても過去の達成は変わらないよう、チェック時の種目数を残す）
+function dayCount(d) {
+  const c = data.checks[d] || [];
+  return { done: c.length, total: data.totals[d] || data.menu.length };
+}
+function dayStatus(d) {
+  const { done, total } = dayCount(d);
+  if (!done) return '';
+  return done >= total ? 'full' : 'part';
+}
+$('dayPrev').onclick = () => { trainDate = addDays(trainDate, -1); calMonth = trainDate.slice(0, 7); renderTrain(); };
+$('dayNext').onclick = () => { if (trainDate < today()) { trainDate = addDays(trainDate, 1); calMonth = trainDate.slice(0, 7); renderTrain(); } };
+$('calPrev').onclick = () => { const d = parseYmd(calMonth + '-01'); d.setMonth(d.getMonth() - 1); calMonth = ymd(d).slice(0, 7); renderTrain(); };
+$('calNext').onclick = () => { const d = parseYmd(calMonth + '-01'); d.setMonth(d.getMonth() + 1); if (ymd(d).slice(0, 7) <= today().slice(0, 7)) { calMonth = ymd(d).slice(0, 7); renderTrain(); } };
+
+function renderTrain() {
+  const c = data.checks[trainDate] || [];
+  $('levelLabel').textContent = data.level ? LEVELS[data.level].name : '自分で作ったメニュー';
+  $('levelHint').textContent = data.level ? LEVELS[data.level].hint : '';
+  $('trainDateLabel').textContent = (trainDate === today() ? '今日 ' : '') + jpDate(trainDate);
+  $('dayNext').style.visibility = trainDate < today() ? 'visible' : 'hidden';
+  const done = data.menu.filter(m => c.includes(m.id)).length;
+  $('trainBar').style.width = (data.menu.length ? done / data.menu.length * 100 : 0) + '%';
+  $('trainCount').textContent = done + ' / ' + data.menu.length + ' 種目' + (done && done === data.menu.length ? '　🎉 全部達成！おつかれさまでした' : '');
+  if (!data.menu.length) $('trainList').innerHTML = '<div class="empty">設定タブでメニューを追加してください</div>';
+  else $('trainList').innerHTML = data.menu.map(m =>
+    '<div class="menu-item' + (c.includes(m.id) ? ' done' : '') + '" data-id="' + m.id + '" role="checkbox" aria-checked="' + c.includes(m.id) + '">' +
+    '<div class="chk">' + (c.includes(m.id) ? '✓' : '') + '</div><div class="nm">' + esc(m.name) +
+    (m.tip ? '<div class="tip2">' + esc(m.tip) + '</div>' : '') + '</div><div class="amt">' + esc(m.amt) + '</div></div>').join('');
+  $('trainList').querySelectorAll('.menu-item').forEach(it => it.onclick = () => {
+    const arr = data.checks[trainDate] || [];
+    const i = arr.indexOf(it.dataset.id);
+    if (i >= 0) arr.splice(i, 1); else arr.push(it.dataset.id);
+    if (arr.length) { data.checks[trainDate] = arr; data.totals[trainDate] = data.menu.length; }
+    else { delete data.checks[trainDate]; delete data.totals[trainDate]; }
+    save(); renderTrain();
+    if (dayStatus(trainDate) === 'full' && i < 0) toast('🎉 全部達成！');
+  });
+
+  // 連続記録（今日まだなら昨日から数える）
+  let s = 0, d = today();
+  if (dayStatus(d) !== 'full') d = addDays(d, -1);
+  while (dayStatus(d) === 'full') { s++; d = addDays(d, -1); }
+  $('streak').textContent = s;
+  const ym = today().slice(0, 7);
+  const monthDays = Object.keys(data.checks).filter(k => k.startsWith(ym));
+  $('monthFull').textContent = monthDays.filter(k => dayStatus(k) === 'full').length;
+  $('monthAny').textContent = monthDays.filter(k => dayStatus(k)).length;
+
+  // カレンダー
+  const first = parseYmd(calMonth + '-01');
+  $('calLabel').textContent = first.getFullYear() + '年' + (first.getMonth() + 1) + '月';
+  $('calNext').style.visibility = calMonth < today().slice(0, 7) ? 'visible' : 'hidden';
+  let h = WD.map(w => '<div class="h">' + w + '</div>').join('');
+  for (let i = 0; i < first.getDay(); i++) h += '<div></div>';
+  const last = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  for (let i = 1; i <= last; i++) {
+    const ds = calMonth + '-' + String(i).padStart(2, '0');
+    const st = dayStatus(ds);
+    const cn = dayCount(ds);
+    h += '<div class="c ' + st + (ds === today() ? ' today' : '') + (ds === trainDate ? ' sel' : '') + '" data-d="' + ds + '">' + i +
+      (st === 'part' ? '<span class="m">' + cn.done + '/' + cn.total + '</span>' : st === 'full' ? '<span class="m">✓</span>' : '') + '</div>';
+  }
+  $('cal').innerHTML = h;
+  $('cal').querySelectorAll('.c').forEach(x => x.onclick = () => {
+    if (x.dataset.d > today()) return;
+    trainDate = x.dataset.d; renderTrain(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
+
+// ---------- 設定 ----------
+function renderSet() {
+  $('lvButtons').innerHTML = [1, 2, 3].map(lv =>
+    '<button class="' + (data.level === lv ? '' : 'sub') + '" data-lv="' + lv + '">' + LEVELS[lv].name + (data.level === lv ? '（いまここ）' : '') +
+    '<span class="s">' + LEVELS[lv].menu.map(m => m.name + ' ' + m.amt).join('／') + '</span></button>').join('');
+  $('lvButtons').querySelectorAll('[data-lv]').forEach(b => b.onclick = () => {
+    const lv = Number(b.dataset.lv);
+    if (!confirm(LEVELS[lv].name + ' のメニューに入れ替えますか？')) return;
+    data.menu = copyMenu(lv); data.level = lv;
+    delete data.checks[today()]; delete data.totals[today()];
+    save(); renderSet(); toast(LEVELS[lv].name + ' にしました');
+  });
+  $('menuEdit').innerHTML = data.menu.map((m, i) =>
+    '<div class="edit-block"><div class="edit-row"><input type="text" value="' + esc(m.name) + '" data-i="' + i + '" data-k="name">' +
+    '<input type="text" value="' + esc(m.amt) + '" data-i="' + i + '" data-k="amt">' +
+    '<button class="small danger" data-rm="' + i + '">消す</button></div>' +
+    '<input type="text" class="tipin" placeholder="コツ・メモ（なくてもOK）" value="' + esc(m.tip || '') + '" data-i="' + i + '" data-k="tip"></div>').join('') || '<div class="note">メニューがありません</div>';
+  $('menuEdit').querySelectorAll('input').forEach(inp => inp.onchange = () => {
+    data.menu[inp.dataset.i][inp.dataset.k] = inp.value.trim(); data.level = 0; save(); toast('保存しました');
+  });
+  $('menuEdit').querySelectorAll('[data-rm]').forEach(b => b.onclick = () => {
+    const m = data.menu[b.dataset.rm];
+    if (!confirm('「' + m.name + '」をメニューから消しますか？')) return;
+    data.menu.splice(b.dataset.rm, 1); data.level = 0; save(); renderSet();
+  });
+  $('goalWeight1').value = data.goal.w1 || '';
+  $('goalWeight').value = data.goal.w || '';
+  $('goalFat').value = data.goal.f || '';
+}
+$('btnAddMenu').onclick = () => {
+  const name = $('newName').value.trim();
+  if (!name) return toast('種目の名前を入れてください');
+  data.menu.push({ id: 'm' + Date.now(), name, amt: $('newAmt').value.trim(), tip: '' });
+  data.level = 0;
+  $('newName').value = ''; $('newAmt').value = '';
+  save(); renderSet(); toast('追加しました');
+};
+$('btnGoal').onclick = () => {
+  const w1 = parseFloat($('goalWeight1').value), w = parseFloat($('goalWeight').value), f = parseFloat($('goalFat').value);
+  data.goal = { w1: w1 > 0 ? w1 : null, w: w > 0 ? w : null, f: f > 0 ? f : null };
+  save(); toast('目標を保存しました');
+};
+const toDataUrl = b => new Promise(ok => { const r = new FileReader(); r.onload = () => ok(r.result); r.readAsDataURL(b); });
+$('btnExport').onclick = async () => {
+  toast('書き出しています…');
+  await refreshPhotoKeys();
+  const photos = {};
+  for (const k of photoKeys) photos[k] = await toDataUrl(await getPhoto(k));
+  const blob = new Blob([JSON.stringify({ ...data, photos })], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'diet-backup-' + today() + '.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+$('btnImport').onclick = () => $('fileImport').click();
+$('fileImport').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  f.text().then(t => {
+    const d = JSON.parse(t);
+    if (!d.records || !d.menu) throw new Error();
+    if (!confirm('今のデータを、このファイルの内容に置き換えますか？')) return;
+    data = { records: d.records, menu: d.menu, level: d.level || 0, checks: d.checks || {}, totals: d.totals || {}, goal: d.goal || {} };
+    save();
+    return (async () => {
+      for (const k in (d.photos || {})) { await putPhoto(k, await (await fetch(d.photos[k])).blob()); dropUrl(k); }
+      await refreshPhotoKeys(); render(); toast('読み込みました');
+    })();
+  }).catch(() => toast('このファイルは読み込めませんでした'));
+  e.target.value = '';
+};
+
+// ---------- 写真（IndexedDBに「日付|向き」ごと1枚） ----------
+const ANGLES = [
+  { k: 'front', t: '正面' }, { k: 'back', t: '後ろ' },
+  { k: 'sideR', t: '横・右向き' }, { k: 'sideL', t: '横・左向き' },
+  { k: 'face', t: '顔・正面' }, { k: 'faceSide', t: '顔・横' },
+  { k: 'clothF', t: '服・正面' }, { k: 'clothS', t: '服・横' },
+];
+const angleName = a => (ANGLES.find(x => x.k === a) || { t: a }).t;
+const pkey = (d, a) => d + '|' + a;
+let photoKeys = [];           // 保存されている写真のキー
+const urlCache = {};          // キー → 表示用URL
+let baAngle = 'front', baBefore = null, baAfter = null;
+let pickTarget = null;        // これから写真を入れる {d, a}
+const dbp = new Promise((ok, ng) => {
+  const r = indexedDB.open('diet-app-photos', 1);
+  r.onupgradeneeded = () => r.result.createObjectStore('photos');
+  r.onsuccess = () => ok(r.result);
+  r.onerror = () => ng(r.error);
+});
+function idb(mode, fn) {
+  return dbp.then(db => new Promise((ok, ng) => {
+    const tx = db.transaction('photos', mode);
+    const req = fn(tx.objectStore('photos'));
+    tx.oncomplete = () => ok(req && req.result);
+    tx.onerror = () => ng(tx.error);
+  }));
+}
+const putPhoto = (k, blob) => idb('readwrite', st => st.put(blob, k));
+const getPhoto = k => idb('readonly', st => st.get(k));
+const delPhoto = k => idb('readwrite', st => st.delete(k));
+function refreshPhotoKeys() {
+  return idb('readonly', st => st.getAllKeys()).then(keys => { photoKeys = (keys || []).sort(); });
+}
+// その向きの写真がある日付（古い順）
+const datesFor = a => photoKeys.filter(k => k.endsWith('|' + a)).map(k => k.split('|')[0]).sort();
+async function photoUrl(k) {
+  if (!urlCache[k]) { const b = await getPhoto(k); if (!b) return null; urlCache[k] = URL.createObjectURL(b); }
+  return urlCache[k];
+}
+function dropUrl(k) { if (urlCache[k]) { URL.revokeObjectURL(urlCache[k]); delete urlCache[k]; } }
+// 長い辺1200pxのJPEGに縮めて保存（容量の節約）
+function shrink(file) {
+  return new Promise((ok, ng) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1200 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src);
+      c.toBlob(b => b ? ok(b) : ng(), 'image/jpeg', 0.8);
+    };
+    img.onerror = ng;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+async function renderRecPhoto() {
+  const d = $('inDate').value;
+  const urls = await Promise.all(ANGLES.map(a => photoKeys.includes(pkey(d, a.k)) ? photoUrl(pkey(d, a.k)) : null));
+  $('recSlots').innerHTML = ANGLES.map((a, i) =>
+    '<div class="slot" data-a="' + a.k + '">' + (urls[i] ? '<img src="' + urls[i] + '" alt="' + a.t + '">' : '<div class="ph-empty">＋</div>') +
+    '<span>' + a.t + '</span></div>').join('');
+  const n = urls.filter(Boolean).length;
+  $('recPhotoCount').textContent = n ? n + '枚 保存済み' : '';
+  $('recSlots').querySelectorAll('.slot').forEach(x => x.onclick = () => {
+    const k = pkey(d, x.dataset.a);
+    if (photoKeys.includes(k)) openViewer(d, x.dataset.a, true);
+    else { pickTarget = { d, a: x.dataset.a }; $('filePhoto').click(); }
+  });
+}
+$('filePhoto').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f || !pickTarget) return;
+  const { d, a } = pickTarget, k = pkey(d, a);
+  try {
+    await putPhoto(k, await shrink(f));
+    dropUrl(k); await refreshPhotoKeys();
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
+    toast(jpDate(d) + '「' + angleName(a) + '」を保存しました'); render();
+  } catch (err) { toast('写真を読み込めませんでした'); }
+};
+
+function recLine(d) {
+  const r = data.records[d];
+  if (!r) return '記録なし';
+  return '<b>' + f1(r.w) + 'kg</b><br>BMI ' + f1(bmi(r.w, r.h)) + (r.f != null ? '｜体脂肪 ' + f1(r.f) + '%' : '');
+}
+async function renderPhoto() {
+  await refreshPhotoKeys();
+  $('angleSeg').innerHTML = ANGLES.map(a => '<button data-a="' + a.k + '"' + (a.k === baAngle ? ' class="on"' : '') + '>' + a.t +
+    '<small> ' + datesFor(a.k).length + '</small></button>').join('');
+  $('angleSeg').querySelectorAll('button').forEach(b => b.onclick = () => { baAngle = b.dataset.a; baBefore = baAfter = null; renderPhoto(); });
+  const ds = datesFor(baAngle);
+  if (!ds.length) {
+    $('baBox').innerHTML = '<div class="empty">「' + angleName(baAngle) + '」の写真はまだありません。<br>「記録」タブで、その日の写真を追加できます。</div>';
+    $('gallery').innerHTML = ''; return;
+  }
+  if (!ds.includes(baBefore)) baBefore = ds[0];
+  if (!ds.includes(baAfter)) baAfter = ds[ds.length - 1];
+  const opt = sel => ds.map(d => '<option value="' + d + '"' + (d === sel ? ' selected' : '') + '>' + jpDate(d) + '</option>').join('');
+  const [ub, ua] = await Promise.all([photoUrl(pkey(baBefore, baAngle)), photoUrl(pkey(baAfter, baAngle))]);
+  let diff = '';
+  const rb = data.records[baBefore], ra = data.records[baAfter];
+  if (rb && ra && baBefore !== baAfter) {
+    const days = Math.round((parseYmd(baAfter) - parseYmd(baBefore)) / 86400000);
+    const sg = n => (n > 0 ? '+' : '') + f1(n);
+    diff = '<div class="ba-diff">' + Math.abs(days) + '日間で　体重 <b>' + sg(ra.w - rb.w) + 'kg</b>' +
+      (rb.f != null && ra.f != null ? '　体脂肪 <b>' + sg(ra.f - rb.f) + '%</b>' : '') + '</div>';
+  }
+  $('baBox').innerHTML = (ds.length === 1 ? '<p class="note" style="margin-top:0">次に同じ向きで撮ると、ここにアフターが並びます。</p>' : '') +
+    '<div class="ba">' +
+    '<figure><select id="selBefore">' + opt(baBefore) + '</select><img src="' + ub + '" alt="ビフォー"><figcaption>ビフォー<br>' + recLine(baBefore) + '</figcaption></figure>' +
+    '<figure><select id="selAfter">' + opt(baAfter) + '</select><img src="' + ua + '" alt="アフター"><figcaption>アフター<br>' + recLine(baAfter) + '</figcaption></figure>' +
+    '</div>' + diff;
+  $('selBefore').onchange = e => { baBefore = e.target.value; renderPhoto(); };
+  $('selAfter').onchange = e => { baAfter = e.target.value; renderPhoto(); };
+
+  const urls = await Promise.all(ds.map(d => photoUrl(pkey(d, baAngle))));
+  $('galleryTitle').textContent = '「' + angleName(baAngle) + '」の写真';
+  $('gallery').innerHTML = '<div class="gallery">' + ds.map((d, i) => '<div data-d="' + d + '"><img src="' + urls[i] + '" alt="' + jpDate(d) + '" loading="lazy"><span>' + jpDate(d) + '</span></div>').reverse().join('') + '</div>';
+  $('gallery').querySelectorAll('[data-d]').forEach(x => x.onclick = () => openViewer(x.dataset.d, baAngle, false));
+}
+// fromRec=true は記録タブから（撮り直し・削除）、false は写真タブから（ビフォー・アフターに入れる）
+async function openViewer(d, a, fromRec) {
+  const k = pkey(d, a);
+  const v = document.createElement('div'); v.className = 'viewer';
+  const btns = fromRec
+    ? '<button data-a="re">撮り直す</button><button class="danger" data-a="del" style="background:#fff">消す</button>'
+    : '<button data-a="b">ビフォーにする</button><button data-a="af">アフターにする</button>';
+  v.innerHTML = '<img src="' + await photoUrl(k) + '" alt=""><div class="vc">' + jpDate(d) + '「' + angleName(a) + '」　' + recLine(d).replace('<br>', '　') + '</div>' +
+    '<div class="vb">' + btns + '<button class="sub" data-a="x" style="color:#fff;border-color:#fff">閉じる</button></div>';
+  document.body.appendChild(v);
+  v.onclick = async e => {
+    const act = e.target.dataset.a;
+    if (!act && e.target !== v) return;
+    v.remove();
+    if (act === 're') { pickTarget = { d, a }; $('filePhoto').click(); return; }
+    if (act === 'del') {
+      if (!confirm(jpDate(d) + '「' + angleName(a) + '」の写真を消しますか？')) return;
+      await delPhoto(k); dropUrl(k); await refreshPhotoKeys(); render(); return;
+    }
+    if (act === 'b' || act === 'af') {
+      if (act === 'b') baBefore = d; else baAfter = d;
+      renderPhoto(); window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+}
+
+// ---------- 描画 ----------
+function render() {
+  renderRec();
+  if (curTab === 'graph') renderGraph();
+  if (curTab === 'train') renderTrain();
+  if (curTab === 'set') renderSet();
+  if (curTab === 'photo') renderPhoto();
+  if (curTab === 'rec') renderRecPhoto();
+}
+fillForm(today());
+render();
+refreshPhotoKeys().then(render, () => {});
+</script>
+</body>
+</html>
