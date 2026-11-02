@@ -88,6 +88,20 @@ button.wide { width: 100%; }
 }
 .toast.show { opacity: 1; }
 
+/* ほめる画面 */
+.praise { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 20; padding: 24px; overflow: hidden; }
+.praise .box { background: var(--surface-1); border-radius: 20px; padding: 24px 20px 18px; max-width: 360px; width: 100%; text-align: center; animation: pop .35s ease-out; position: relative; z-index: 1; }
+.praise .em { font-size: 56px; line-height: 1.1; }
+.praise h3 { font-size: 21px; margin: 8px 0 6px; }
+.praise p { margin: 0 0 6px; color: var(--text-secondary); font-size: 15px; }
+.praise .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 10px 0 14px; }
+.praise .chips span { background: var(--bg); border-radius: 99px; padding: 3px 10px; font-size: 13px; }
+.praise .btns { display: grid; gap: 8px; }
+.confetti { position: absolute; top: -40px; font-size: 24px; animation: fall linear forwards; }
+@keyframes pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes fall { to { transform: translateY(110vh) rotate(540deg); } }
+@media (prefers-reduced-motion: reduce) { .praise .box, .confetti { animation: none; } .confetti { display: none; } }
+
 /* タブ */
 nav {
   position: fixed; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(5, 1fr);
@@ -334,6 +348,15 @@ td button { padding: 2px 8px; font-size: 12px; }
     </div>
 
     <div class="card">
+      <h2>呼び名</h2>
+      <div class="edit-row" style="grid-template-columns: 1fr auto">
+        <input type="text" id="nickName" placeholder="例：さっちゃん">
+        <button class="small" id="btnName">保存</button>
+      </div>
+      <p class="note" style="margin:4px 0 0">記録や筋トレのあとに、この名前で呼びかけてほめます。</p>
+    </div>
+
+    <div class="card">
       <h2>目標</h2>
       <div class="row3">
         <div class="field">
@@ -487,10 +510,13 @@ $('btnSave').onclick = () => {
   if (!(w > 20 && w < 300)) return toast('体重を入れてください');
   if (!(h > 100 && h < 250)) return toast('身長をcmで入れてください');
   if (f != null && !(f > 1 && f < 70)) return toast('体脂肪は%で入れてください');
+  const before = sortedDates().filter(d => d < date);
+  const prev = before.length ? data.records[before[before.length - 1]] : null;
+  const first = before.length ? data.records[before[0]] : null;
   data.records[date] = { w, h, f };
   save();
-  toast('記録しました（BMI ' + f1(bmi(w, h)) + '）');
   render();
+  praiseRecord(date, w, prev, first);
 };
 
 function renderRec() {
@@ -702,14 +728,13 @@ function renderTrain() {
     if (arr.length) { data.checks[trainDate] = arr; data.totals[trainDate] = data.menu.length; }
     else { delete data.checks[trainDate]; delete data.totals[trainDate]; }
     save(); renderTrain();
-    if (dayStatus(trainDate) === 'full' && i < 0) toast('🎉 全部達成！');
+    if (i < 0) {
+      if (dayStatus(trainDate) === 'full') praiseTrain(trainDate);
+      else { const r = data.menu.length - arr.length; toast(pick(['ナイス！', 'いいね！', 'その調子！', 'かっこいい！']) + (r > 0 ? '　あと' + r + '種目💪' : '')); }
+    }
   });
 
-  // 連続記録（今日まだなら昨日から数える）
-  let s = 0, d = today();
-  if (dayStatus(d) !== 'full') d = addDays(d, -1);
-  while (dayStatus(d) === 'full') { s++; d = addDays(d, -1); }
-  $('streak').textContent = s;
+  $('streak').textContent = trainStreak(today());
   const ym = today().slice(0, 7);
   const monthDays = Object.keys(data.checks).filter(k => k.startsWith(ym));
   $('monthFull').textContent = monthDays.filter(k => dayStatus(k) === 'full').length;
@@ -733,6 +758,91 @@ function renderTrain() {
   $('cal').querySelectorAll('.c').forEach(x => x.onclick = () => {
     if (x.dataset.d > today()) return;
     trainDate = x.dataset.d; renderTrain(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
+
+// 連続で全部できた日数（その日がまだなら前日から数える）
+function trainStreak(from) {
+  let s = 0, d = from;
+  if (dayStatus(d) !== 'full') d = addDays(d, -1);
+  while (dayStatus(d) === 'full') { s++; d = addDays(d, -1); }
+  return s;
+}
+
+// ---------- ほめる ----------
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const callName = () => data.name ? data.name + '、' : '';
+function confetti(box, set) {
+  for (let i = 0; i < 18; i++) {
+    const c = document.createElement('span'); c.className = 'confetti'; c.textContent = pick(set);
+    c.style.left = Math.random() * 100 + '%';
+    c.style.animationDuration = 2 + Math.random() * 2 + 's';
+    c.style.animationDelay = Math.random() * .6 + 's';
+    box.appendChild(c);
+  }
+}
+function showPraise({ em, title, lines, chips, extra, party }) {
+  const v = document.createElement('div'); v.className = 'praise';
+  v.innerHTML = '<div class="box"><div class="em">' + em + '</div><h3>' + title + '</h3>' +
+    lines.map(l => '<p>' + l + '</p>').join('') +
+    (chips.length ? '<div class="chips">' + chips.map(c => '<span>' + c + '</span>').join('') + '</div>' : '<div style="height:10px"></div>') +
+    '<div class="btns"><button data-a="ok">ありがとう！</button>' + (extra ? '<button class="sub" data-a="extra">' + extra.label + '</button>' : '') + '</div></div>';
+  if (party) confetti(v, party);
+  document.body.appendChild(v);
+  v.onclick = e => {
+    const a = e.target.dataset.a;
+    if (!a && e.target !== v) return;
+    v.remove();
+    if (a === 'extra') extra.fn();
+  };
+}
+function recordStreak(d) {
+  let n = 0;
+  while (data.records[d]) { n++; d = addDays(d, -1); }
+  return n;
+}
+function praiseRecord(date, w, prev, first) {
+  const N = callName();
+  const g1 = data.goal.w1, g = data.goal.w;
+  const chips = [];
+  const rs = recordStreak(date);
+  if (rs >= 2) chips.push('📅 記録 ' + rs + '日連続');
+  if (first && first.w - w >= 0.1) chips.push('📉 スタートから −' + f1(first.w - w) + 'kg');
+  const total = Object.keys(data.records).length;
+  if ([7, 14, 30, 50, 100].includes(total)) chips.push('🏅 記録' + total + '回目');
+  let p;
+  if (!prev) {
+    p = { em: '🌱', title: '記録スタート！', lines: [N + '今日がスタートの日です。', '始めると決めて、ちゃんと量った。その一歩がいちばん大きい一歩です。'], party: ['🌱', '✨', '🌸'] };
+  } else if (g && prev.w > g && w <= g) {
+    p = { em: '👑', title: '最終目標 ' + f1(g) + 'kg 達成！', lines: [N + '本当に、本当におめでとう！', '毎日の記録と筋トレを積み重ねた、あなたの力です。'], party: ['👑', '🎉', '✨', '💐'] };
+  } else if (g1 && prev.w > g1 && w <= g1) {
+    p = { em: '🏆', title: 'まずの目標 ' + f1(g1) + 'kg 達成！', lines: [N + 'ここまでよく続けてきました！', g ? '次は最終目標の ' + f1(g) + 'kg。この調子でいこう！' : 'この調子でいこう！'], party: ['🏆', '🎉', '✨'] };
+  } else if (w < prev.w) {
+    p = { em: '🎉', title: '前回より ' + f1(prev.w - w) + 'kg 減！', lines: [N + pick(['コツコツが、ちゃんと数字になってきてるね。', 'その調子！体がちゃんと応えてくれてます。', '積み重ねの力が出てきてます！', '今日の自分、えらい！'])], party: ['🎉', '✨', '💖'] };
+  } else if (w === prev.w) {
+    p = { em: '✨', title: 'キープ！', lines: [N + '今日もちゃんと量れました。', 'キープできている日も、立派な前進です。'] };
+  } else {
+    p = { em: '🌷', title: '今日も量れたのがえらい！', lines: [N + '増えた日に体重計に乗るのは、いちばん勇気がいること。', '体重は水分や食事だけで1〜2kgはすぐ動きます。大事なのは毎日の流れ。グラフで見れば大丈夫。'] };
+  }
+  p.chips = chips;
+  if (date === today() && dayStatus(today()) !== 'full' && data.menu.length)
+    p.extra = { label: 'このまま筋トレへ💪', fn: () => { trainDate = today(); showTab('train'); } };
+  showPraise(p);
+}
+function praiseTrain(d) {
+  const N = callName();
+  const st = trainStreak(d);
+  const chips = [];
+  if (st >= 2) chips.push('🔥 ' + st + '日連続で全部達成');
+  const ym = d.slice(0, 7);
+  const mf = Object.keys(data.checks).filter(k => k.startsWith(ym) && dayStatus(k) === 'full').length;
+  chips.push('🗓 今月 ' + mf + '日目');
+  const special = { 3: '3日続いた！三日坊主、卒業です。', 7: '1週間連続！もう立派な習慣になってきました。', 14: '2週間連続！レベルアップを考えてもいい頃かも。', 30: '30日連続！！本当にすごい。尊敬します。' }[st];
+  showPraise({
+    em: pick(['💪', '🎉', '💮', '🌟']),
+    title: '今日のメニュー全部達成！',
+    lines: [N + (special || pick(['えらすぎる！今日の自分に花丸💮', 'やると決めて、ちゃんとやった。それがいちばんかっこいい。', '筋肉が「ありがとう」って言ってます。', '今日の頑張りは、1ヶ月後の写真にちゃんと出てきます📷', 'おつかれさまでした！ゆっくり水分とってね。']))],
+    chips, party: ['💪', '🎉', '✨', '💖', '🌟'],
   });
 }
 
@@ -761,10 +871,12 @@ function renderSet() {
     if (!confirm('「' + m.name + '」をメニューから消しますか？')) return;
     data.menu.splice(b.dataset.rm, 1); data.level = 0; save(); renderSet();
   });
+  $('nickName').value = data.name || '';
   $('goalWeight1').value = data.goal.w1 || '';
   $('goalWeight').value = data.goal.w || '';
   $('goalFat').value = data.goal.f || '';
 }
+$('btnName').onclick = () => { data.name = $('nickName').value.trim(); save(); toast('保存しました'); };
 $('btnAddMenu').onclick = () => {
   const name = $('newName').value.trim();
   if (!name) return toast('種目の名前を入れてください');
@@ -798,7 +910,7 @@ $('fileImport').onchange = e => {
     const d = JSON.parse(t);
     if (!d.records || !d.menu) throw new Error();
     if (!confirm('今のデータを、このファイルの内容に置き換えますか？')) return;
-    data = { records: d.records, menu: d.menu, level: d.level || 0, checks: d.checks || {}, totals: d.totals || {}, goal: d.goal || {} };
+    data = { records: d.records, menu: d.menu, level: d.level || 0, checks: d.checks || {}, totals: d.totals || {}, goal: d.goal || {}, name: d.name || '' };
     save();
     return (async () => {
       for (const k in (d.photos || {})) { await putPhoto(k, await (await fetch(d.photos[k])).blob()); dropUrl(k); }
